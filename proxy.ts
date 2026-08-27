@@ -4,7 +4,7 @@ import { SESSION_COOKIE, isSessionValid } from '@/lib/session';
 
 const PUBLIC_PATHS = ['/vhod'];
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
 
   if (PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`))) {
