@@ -23,6 +23,7 @@ import csv
 import json
 import os
 import re
+import ssl
 import sys
 import urllib.error
 import urllib.request
@@ -272,11 +273,48 @@ def load_reports(folder: Path) -> list[dict]:
 # ------------------------------------------------------------------- запись
 
 
+CERT_HELP = """
+Python не смог проверить сертификат Supabase.
+
+Это не проблема с ключом или сетью: сборка Python с python.org идёт со своей
+связкой корневых сертификатов и не читает системную связку ключей macOS.
+Пока связку не установили, любой https-запрос падает.
+
+Лечится один раз, любым способом:
+
+  1) Открыть Finder → Программы → папку «Python 3.x» и запустить
+     «Install Certificates.command». Или из Терминала:
+       open "/Applications/Python 3.9/Install Certificates.command"
+
+  2) Либо поставить связку вручную:
+       python3 -m pip install --upgrade certifi
+
+После этого запусти импорт заново — записать он ничего не успел.
+""".strip()
+
+
+def ssl_context() -> "ssl.SSLContext":
+    """
+    Контекст с проверкой сертификата.
+
+    certifi, если он есть: на маке связка от python.org часто пустая, и тогда
+    системный контекст не проверит ничего. Проверку не отключаем никогда —
+    ключ service_role уходит в этот запрос.
+    """
+    try:
+        import certifi
+
+        return ssl.create_default_context(cafile=certifi.where())
+    except ImportError:
+        return ssl.create_default_context()
+
+
 class Supabase:
     def __init__(self, url: str, key: str, dry_run: bool):
         self.url = url.rstrip("/")
         self.key = key
         self.dry_run = dry_run
+        self.context = None if dry_run else ssl_context()
 
     def call(self, path: str, payload: dict, method: str = "POST", prefer: str = "") -> object:
         if self.dry_run:
@@ -293,12 +331,16 @@ class Supabase:
             },
         )
         try:
-            with urllib.request.urlopen(request, timeout=45) as response:
+            with urllib.request.urlopen(request, timeout=45, context=self.context) as response:
                 body = response.read().decode("utf-8")
                 return json.loads(body) if body.strip() else None
         except urllib.error.HTTPError as error:
             detail = error.read().decode("utf-8", "replace")
             raise SystemExit(f"Supabase ответил {error.code} на {path}:\n{detail}") from error
+        except urllib.error.URLError as error:
+            if isinstance(error.reason, ssl.SSLError):
+                raise SystemExit(CERT_HELP) from error
+            raise SystemExit(f"Не достучались до Supabase: {error.reason}") from error
 
     def rpc(self, name: str, payload: dict) -> object:
         return self.call(f"rpc/{name}", payload)
