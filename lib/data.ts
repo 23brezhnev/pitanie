@@ -32,6 +32,8 @@ export function periodRange(period: PeriodKey): { from: string; to: string } {
 function toDay(row: Record<string, unknown>): Day {
   return {
     d: String(row.d),
+    has_food: Boolean(row.has_food),
+    food_source: (row.food_source as string | null) ?? null,
     calories: num(row.calories),
     protein: num(row.protein),
     fat: num(row.fat),
@@ -138,8 +140,12 @@ export async function getRecentDays(limit: number): Promise<Day[]> {
   return rows.reverse();
 }
 
+/** Список дневника: только дни с записью о еде. Дней с одним весом или шагами тысячи. */
 export async function getAllDays(): Promise<Day[]> {
-  return unwrap(db().from('v_days').select('*').order('d', { ascending: false }), toDay);
+  return unwrap(
+    db().from('v_days').select('*').eq('has_food', true).order('d', { ascending: false }),
+    toDay,
+  );
 }
 
 export async function getDay(date: string): Promise<Day | null> {

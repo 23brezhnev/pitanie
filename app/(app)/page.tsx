@@ -32,6 +32,7 @@ export default async function OverviewPage({
   }
 
   const withCalories = days.filter((d) => d.calories !== null);
+  const foodDays = days.filter((d) => d.has_food);
   const latest = days.at(-1) ?? null;
   const lastWeighed = [...days].reverse().find((d) => d.weight !== null) ?? null;
 
@@ -125,7 +126,7 @@ export default async function OverviewPage({
             value={inCorridor}
             foot={
               <span>
-                из {daysWord(withCalories.length)} с записью
+                из {daysWord(foodDays.length)} с записью
               </span>
             }
           />

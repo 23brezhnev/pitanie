@@ -4,6 +4,9 @@ export const MEALS: Meal[] = ['Завтрак', 'Обед', 'Перекус', '�
 
 export type Day = {
   d: string;
+  /** В этот день есть запись о еде, а не только вес или шаги. */
+  has_food: boolean;
+  food_source: string | null;
   calories: number | null;
   protein: number | null;
   fat: number | null;
