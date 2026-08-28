@@ -40,6 +40,11 @@ export default async function OverviewPage({
     ? withCalories.reduce((sum, d) => sum + (d.calories ?? 0), 0) / withCalories.length
     : null;
 
+  const daysWithBalance = days.filter((d) => d.balance !== null);
+  const avgBalance = daysWithBalance.length
+    ? daysWithBalance.reduce((sum, d) => sum + (d.balance ?? 0), 0) / daysWithBalance.length
+    : null;
+
   const withSteps = days.filter((d) => d.steps !== null);
   const avgSteps = withSteps.length
     ? withSteps.reduce((sum, d) => sum + (d.steps ?? 0), 0) / withSteps.length
@@ -134,17 +139,38 @@ export default async function OverviewPage({
               goodWhen: 'higher',
             }}
           />
+
+          <StatTile
+            label="Баланс в среднем"
+            value={avgBalance === null ? null : Math.round(avgBalance)}
+            unit="ккал"
+            foot={
+              <span>
+                {daysWithBalance.length === 0
+                  ? 'нужны шаги'
+                  : avgBalance !== null && avgBalance < 0
+                    ? `дефицит, по ${daysWord(daysWithBalance.length)}`
+                    : `профицит, по ${daysWord(daysWithBalance.length)}`}
+              </span>
+            }
+          />
         </div>
 
         <Card
-          title="Калории по дням"
-          subtitle={`Норма ${fmt(settings.calories_target)} ккал, коридор ±${fmt(settings.calories_tolerance)}`}
+          title="Съедено и потрачено"
+          subtitle={`Норма ${fmt(settings.calories_target)} ккал, коридор ±${fmt(settings.calories_tolerance)}. Расход — оценка по весу и шагам, на норму он не влияет.`}
         >
           <TimeSeriesChart
-            data={days.map((d) => ({ d: d.d, calories: d.calories, ma7: d.calories_ma7 }))}
+            data={days.map((d) => ({
+              d: d.d,
+              calories: d.calories,
+              expenditure: d.expenditure,
+              ma7: d.calories_ma7,
+            }))}
             series={[
-              { key: 'calories', label: 'За день', color: 'var(--series-1)', type: 'column' },
-              { key: 'ma7', label: 'Среднее за 7 дней', color: 'var(--series-2)', type: 'line' },
+              { key: 'calories', label: 'Съедено', color: 'var(--series-1)', type: 'column' },
+              { key: 'expenditure', label: 'Потрачено', color: 'var(--series-2)', type: 'line' },
+              { key: 'ma7', label: 'Съедено, среднее за 7 дней', color: 'var(--series-3)', type: 'line' },
             ]}
             band={{
               lo: settings.calories_target - settings.calories_tolerance,
@@ -152,7 +178,33 @@ export default async function OverviewPage({
               label: 'Коридор нормы',
             }}
             unit="ккал"
-            height={240}
+            height={260}
+          />
+        </Card>
+
+        <Card
+          title="Баланс дня"
+          subtitle={
+            daysWithBalance.length === 0
+              ? 'Считается по дням, где известны шаги. Появится, когда телефон начнёт их присылать.'
+              : `Съедено минус потрачено. Ниже нуля — дефицит. Посчитан за ${daysWord(daysWithBalance.length)} из ${daysWord(days.length)}.`
+          }
+        >
+          <TimeSeriesChart
+            data={days.map((d) => ({ d: d.d, balance: d.balance }))}
+            series={[
+              {
+                key: 'balance',
+                label: 'Баланс',
+                color: 'var(--diverge-warm)',
+                negativeColor: 'var(--diverge-cool)',
+                type: 'column',
+              },
+            ]}
+            divergingLegend={{ negative: 'Дефицит', positive: 'Профицит' }}
+            unit="ккал"
+            height={200}
+            emptyText="Нет дней с шагами — баланс посчитать не из чего"
           />
         </Card>
 

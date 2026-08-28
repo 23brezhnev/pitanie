@@ -20,6 +20,12 @@
   --series-3: #1baf7a;
   --series-4: #eda100;
 
+  /* Расходящаяся пара для баланса дня: синий — дефицит, красный — профицит.
+     Красный взят из категориальной шкалы, а не из статусных цветов: те
+     зарезервированы и не должны изображать величину. */
+  --diverge-cool: #2a78d6;
+  --diverge-warm: #e34948;
+
   --good: #0ca30c;
   --warning: #fab219;
   --serious: #ec835a;
@@ -51,6 +57,9 @@
     --series-3: #199e70;
     --series-4: #c98500;
 
+    --diverge-cool: #3987e5;
+    --diverge-warm: #e66767;
+
     --good-text: #0ca30c;
   }
 }
@@ -74,6 +83,9 @@
   --series-2: #d95926;
   --series-3: #199e70;
   --series-4: #c98500;
+
+  --diverge-cool: #3987e5;
+  --diverge-warm: #e66767;
 
   --good-text: #0ca30c;
 }

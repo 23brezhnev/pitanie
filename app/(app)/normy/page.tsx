@@ -39,6 +39,11 @@ async function saveSettings(formData: FormData) {
       weight_start: optionalNumber(formData, 'weight_start'),
       weight_goal: optionalNumber(formData, 'weight_goal'),
       steps_target: requiredNumber(formData, 'steps_target', 8000),
+      height_cm: requiredNumber(formData, 'height_cm', 185),
+      age_years: requiredNumber(formData, 'age_years', 30),
+      activity_factor: requiredNumber(formData, 'activity_factor', 1.35),
+      baseline_steps: requiredNumber(formData, 'baseline_steps', 5000),
+      kcal_per_step: requiredNumber(formData, 'kcal_per_step', 0.0833),
       rules: rules === '' ? null : rules,
     })
     .eq('id', 1);
@@ -131,6 +136,42 @@ export default async function SettingsPage({
           <p className="form-note" style={{ marginTop: 12 }}>
             Норма калорий под шаги не пересчитывается. Счётчик завышает расход на 20–30%, а базовая
             активность уже заложена в норму.
+          </p>
+        </Card>
+
+        <Card
+          title="Оценка расхода"
+          subtitle="Отсюда берутся «Потрачено» и «Баланс дня». На норму и на признак «в коридоре» эти числа не влияют — они только объясняют движение веса."
+        >
+          <div className="grid grid-tiles" style={{ gap: 14 }}>
+            <Field name="height_cm" label="Рост, см" value={settings.height_cm} step="1" />
+            <Field name="age_years" label="Возраст, лет" value={settings.age_years} step="1" />
+            <Field
+              name="activity_factor"
+              label="Коэффициент активности"
+              value={settings.activity_factor}
+              step="0.01"
+              hint="При базовом числе шагов"
+            />
+            <Field
+              name="baseline_steps"
+              label="Базовые шаги"
+              value={settings.baseline_steps}
+              step="500"
+              hint="Сколько шагов уже заложено в коэффициент"
+            />
+            <Field
+              name="kcal_per_step"
+              label="Ккал за шаг сверх базовых"
+              value={settings.kcal_per_step}
+              step="0.001"
+              hint="0,0833 — это 250 ккал за 3000 шагов"
+            />
+          </div>
+          <p className="form-note" style={{ marginTop: 12 }}>
+            Основной обмен считается по Миффлину — Сан Жеору от последнего известного веса.
+            Расход — обмен, умноженный на коэффициент, плюс прибавка за шаги сверх базовых.
+            Счётчик шагов завышает расход на 20–30%: если оценка кажется щедрой, снижай ккал за шаг.
           </p>
         </Card>
 

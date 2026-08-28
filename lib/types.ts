@@ -27,6 +27,11 @@ export type Day = {
   calories_ma7: number | null;
   weight_ma7: number | null;
   steps_ma7: number | null;
+  bmr: number | null;
+  /** Оценка расхода. Пусто, если за день нет шагов. */
+  expenditure: number | null;
+  /** Съедено минус потрачено: минус — дефицит, плюс — профицит. */
+  balance: number | null;
 };
 
 export type Dish = {
@@ -57,6 +62,11 @@ export type Settings = {
   weight_goal: number | null;
   steps_target: number;
   rules: string | null;
+  height_cm: number;
+  age_years: number;
+  activity_factor: number;
+  baseline_steps: number;
+  kcal_per_step: number;
   updated_at: string;
 };
 
@@ -73,6 +83,9 @@ export type Week = {
   days_in_corridor: number;
   days_flagged: number;
   weight_change: number | null;
+  avg_expenditure: number | null;
+  avg_balance: number | null;
+  total_balance: number | null;
 };
 
 export type TopProduct = {

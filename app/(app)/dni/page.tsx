@@ -36,8 +36,10 @@ export default async function DaysPage() {
               <thead>
                 <tr>
                   <th>Дата</th>
-                  <th>Ккал</th>
+                  <th>Съедено</th>
                   <th>К норме</th>
+                  <th>Потрачено</th>
+                  <th>Баланс</th>
                   <th>Белок</th>
                   <th>Жиры</th>
                   <th>Углев.</th>
@@ -61,6 +63,10 @@ export default async function DaysPage() {
                     <td>{fmt(day.calories)}</td>
                     <td className={day.in_corridor ? 'muted' : day.calories_delta !== null && day.calories_delta > 0 ? 'delta-bad' : ''}>
                       {signed(day.calories_delta)}
+                    </td>
+                    <td className="muted">{fmt(day.expenditure)}</td>
+                    <td className={day.balance === null ? '' : day.balance < 0 ? 'delta-good' : 'delta-bad'}>
+                      {signed(day.balance)}
                     </td>
                     <td>{fmt(day.protein, 1)}</td>
                     <td>{fmt(day.fat, 1)}</td>
@@ -108,7 +114,8 @@ export default async function DaysPage() {
       {logged.length > 0 && (
         <p className="form-note" style={{ marginTop: 12 }}>
           Красным отмечены дни, где клетчатки меньше нормы, а сахара или соли — больше предела.
-          Пределы задаются на странице «Нормы».
+          Пределы задаются на странице «Нормы». Расход и баланс считаются только за дни,
+          где известны шаги; на признак «в коридоре» они не влияют.
         </p>
       )}
     </>

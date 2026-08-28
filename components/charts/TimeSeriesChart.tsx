@@ -13,6 +13,8 @@ export type SeriesSpec = {
   type: 'column' | 'line';
   /** Знаков после запятой в подсказке. */
   digits?: number;
+  /** Цвет для отрицательных значений: расходящаяся шкала вокруг нуля. */
+  negativeColor?: string;
 };
 
 export type TimePoint = { d: string; [key: string]: number | string | null | undefined };
@@ -29,6 +31,11 @@ type Props = {
   /** Столбцы всегда от нуля; вес и подобное — по фактическому диапазону. */
   zeroBased?: boolean;
   emptyText?: string;
+  /**
+   * Подписи полюсов расходящейся шкалы. Серия одна, но цвет несёт смысл —
+   * значит легенда обязана его объяснить.
+   */
+  divergingLegend?: { negative: string; positive: string };
 };
 
 const M = { top: 14, right: 16, bottom: 26, left: 46 };
@@ -60,6 +67,7 @@ export function TimeSeriesChart({
   height = 220,
   zeroBased = true,
   emptyText = 'Пока нет данных за этот период',
+  divergingLegend,
 }: Props) {
   const { ref, width } = useWidth<HTMLDivElement>();
   const [hover, setHover] = useState<number | null>(null);
@@ -86,7 +94,16 @@ export function TimeSeriesChart({
 
     const min = values.length ? Math.min(...values) : 0;
     const max = values.length ? Math.max(...values) : 1;
-    return niceTicks(zeroBased ? Math.min(0, min) : min, max, 5);
+
+    // Столбцы растут от нуля, значит ноль обязан быть внутри диапазона — с обеих
+    // сторон. Иначе при сплошном дефиците ось выходит от −600 до −1000, основание
+    // столбцов оказывается далеко за пределами графика, и они рисуются поверх
+    // соседних карточек.
+    return niceTicks(
+      zeroBased ? Math.min(0, min) : min,
+      zeroBased ? Math.max(0, max) : max,
+      5,
+    );
   }, [data, resolved, band, reference, zeroBased]);
 
   if (data.length === 0) return <p className="empty">{emptyText}</p>;
@@ -160,6 +177,18 @@ export function TimeSeriesChart({
           </g>
         ))}
 
+        {/* ноль на расходящейся шкале — опора, от неё читаются обе стороны */}
+        {geometry.lo < 0 && (
+          <line
+            x1={M.left}
+            x2={M.left + plotWidth}
+            y1={yAt(0)}
+            y2={yAt(0)}
+            stroke="var(--axis)"
+            strokeWidth="1"
+          />
+        )}
+
         {/* линия цели */}
         {reference && (
           <line
@@ -213,7 +242,7 @@ export function TimeSeriesChart({
                 <path
                   key={`${s.key}-${point.d}`}
                   d={columnPath(xAt(i) - columnWidth / 2, top, columnWidth, bottom - top)}
-                  fill={s.color}
+                  fill={v < 0 && s.negativeColor ? s.negativeColor : s.color}
                   opacity={hover === null || hover === i ? 1 : 0.45}
                 />
               );
@@ -318,7 +347,20 @@ export function TimeSeriesChart({
         </div>
       )}
 
-      {(legendSeries.length > 1 || band || reference) && (
+      {divergingLegend && (
+        <div className="legend">
+          <span className="legend-item">
+            <span className="dot" style={{ background: resolved[0].negativeColor }} />
+            {divergingLegend.negative}
+          </span>
+          <span className="legend-item">
+            <span className="dot" style={{ background: resolved[0].color }} />
+            {divergingLegend.positive}
+          </span>
+        </div>
+      )}
+
+      {!divergingLegend && (legendSeries.length > 1 || band || reference) && (
         <div className="legend">
           {legendSeries.map((s) => (
             <span className="legend-item" key={s.key}>

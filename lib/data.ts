@@ -55,6 +55,9 @@ function toDay(row: Record<string, unknown>): Day {
     calories_ma7: num(row.calories_ma7),
     weight_ma7: num(row.weight_ma7),
     steps_ma7: num(row.steps_ma7),
+    bmr: num(row.bmr),
+    expenditure: num(row.expenditure),
+    balance: num(row.balance),
   };
 }
 
@@ -103,6 +106,11 @@ export async function getSettings(): Promise<Settings | null> {
     weight_goal: num(row.weight_goal),
     steps_target: num(row.steps_target) ?? 0,
     rules: (row.rules as string | null) ?? null,
+    height_cm: num(row.height_cm) ?? 0,
+    age_years: num(row.age_years) ?? 0,
+    activity_factor: num(row.activity_factor) ?? 0,
+    baseline_steps: num(row.baseline_steps) ?? 0,
+    kcal_per_step: num(row.kcal_per_step) ?? 0,
     updated_at: String(row.updated_at ?? ''),
   };
 }
@@ -166,6 +174,9 @@ export async function getWeeks(limit = 26): Promise<Week[]> {
       days_in_corridor: Number(row.days_in_corridor ?? 0),
       days_flagged: Number(row.days_flagged ?? 0),
       weight_change: num(row.weight_change),
+      avg_expenditure: num(row.avg_expenditure),
+      avg_balance: num(row.avg_balance),
+      total_balance: num(row.total_balance),
     }),
   );
   return rows;

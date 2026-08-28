@@ -93,6 +93,24 @@ export default async function DayPage({ params }: { params: Promise<{ date: stri
               goodWhen: 'higher',
             }}
           />
+          <StatTile
+            label="Потрачено"
+            value={day.expenditure}
+            unit="ккал"
+            foot={day.expenditure === null ? <span>нужны шаги</span> : <span>оценка по весу и шагам</span>}
+          />
+          <StatTile
+            label="Баланс"
+            value={day.balance}
+            unit="ккал"
+            foot={
+              day.balance === null ? null : (
+                <span className={day.balance < 0 ? 'delta-good' : 'delta-bad'}>
+                  {day.balance < 0 ? 'дефицит' : 'профицит'}
+                </span>
+              )
+            }
+          />
           <StatTile label="Блюд записано" value={dishes.length || null} />
         </div>
 
