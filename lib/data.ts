@@ -56,7 +56,14 @@ function toDay(row: Record<string, unknown>): Day {
     weight_ma7: num(row.weight_ma7),
     steps_ma7: num(row.steps_ma7),
     bmr: num(row.bmr),
+    fat_percent: num(row.fat_percent),
+    lean_mass: num(row.lean_mass),
+    active_energy: num(row.active_energy),
+    basal_energy: num(row.basal_energy),
+    expenditure_measured: num(row.expenditure_measured),
+    expenditure_formula: num(row.expenditure_formula),
     expenditure: num(row.expenditure),
+    expenditure_source: (row.expenditure_source as string | null) ?? null,
     balance: num(row.balance),
   };
 }
@@ -105,6 +112,7 @@ export async function getSettings(): Promise<Settings | null> {
     weight_start: num(row.weight_start),
     weight_goal: num(row.weight_goal),
     steps_target: num(row.steps_target) ?? 0,
+    prefer_measured_expenditure: row.prefer_measured_expenditure !== false,
     rules: (row.rules as string | null) ?? null,
     height_cm: num(row.height_cm) ?? 0,
     age_years: num(row.age_years) ?? 0,
@@ -177,6 +185,7 @@ export async function getWeeks(limit = 26): Promise<Week[]> {
       avg_expenditure: num(row.avg_expenditure),
       avg_balance: num(row.avg_balance),
       total_balance: num(row.total_balance),
+      avg_fat_percent: num(row.avg_fat_percent),
     }),
   );
   return rows;

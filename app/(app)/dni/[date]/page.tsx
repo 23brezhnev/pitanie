@@ -97,7 +97,15 @@ export default async function DayPage({ params }: { params: Promise<{ date: stri
             label="Потрачено"
             value={day.expenditure}
             unit="ккал"
-            foot={day.expenditure === null ? <span>нужны шаги</span> : <span>оценка по весу и шагам</span>}
+            foot={
+              day.expenditure === null ? (
+                <span>нет данных</span>
+              ) : day.expenditure_source === 'health' ? (
+                <span>из Здоровья</span>
+              ) : (
+                <span>по формуле</span>
+              )
+            }
           />
           <StatTile
             label="Баланс"
@@ -110,6 +118,13 @@ export default async function DayPage({ params }: { params: Promise<{ date: stri
                 </span>
               )
             }
+          />
+          <StatTile
+            label="Жир"
+            value={day.fat_percent}
+            unit="%"
+            digits={1}
+            foot={day.lean_mass !== null ? <span>тощая {fmt(day.lean_mass, 1)} кг</span> : null}
           />
           <StatTile label="Блюд записано" value={dishes.length || null} />
         </div>

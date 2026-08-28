@@ -28,8 +28,16 @@ export type Day = {
   weight_ma7: number | null;
   steps_ma7: number | null;
   bmr: number | null;
-  /** Оценка расхода. Пусто, если за день нет шагов. */
+  fat_percent: number | null;
+  lean_mass: number | null;
+  active_energy: number | null;
+  basal_energy: number | null;
+  expenditure_measured: number | null;
+  expenditure_formula: number | null;
+  /** Расход: измерение Apple Health, где оно есть, иначе формула. */
   expenditure: number | null;
+  /** «health» или «формула» — чем именно посчитан расход. */
+  expenditure_source: string | null;
   /** Съедено минус потрачено: минус — дефицит, плюс — профицит. */
   balance: number | null;
 };
@@ -61,6 +69,7 @@ export type Settings = {
   weight_start: number | null;
   weight_goal: number | null;
   steps_target: number;
+  prefer_measured_expenditure: boolean;
   rules: string | null;
   height_cm: number;
   age_years: number;
@@ -86,6 +95,7 @@ export type Week = {
   avg_expenditure: number | null;
   avg_balance: number | null;
   total_balance: number | null;
+  avg_fat_percent: number | null;
 };
 
 export type TopProduct = {

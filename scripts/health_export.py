@@ -33,6 +33,18 @@ from supabase_klient import Supabase  # noqa: E402
 
 STEPS = "HKQuantityTypeIdentifierStepCount"
 WEIGHT = "HKQuantityTypeIdentifierBodyMass"
+ACTIVE = "HKQuantityTypeIdentifierActiveEnergyBurned"
+BASAL = "HKQuantityTypeIdentifierBasalEnergyBurned"
+FAT = "HKQuantityTypeIdentifierBodyFatPercentage"
+LEAN = "HKQuantityTypeIdentifierLeanBodyMass"
+
+# Суммируем по источникам и берём наибольшую сумму, а не сложение всех.
+# Шаги и энергию пишут параллельно айфон, часы и сторонние приложения —
+# Yazio, Zepp, Fitsession. Сложить их значит завысить день в разы.
+PO_ISTOCHNIKAM = (STEPS, ACTIVE, BASAL)
+
+# Из нескольких замеров за день берём поздний.
+POZDNIY = (WEIGHT, FAT, LEAN)
 
 # Что стоит показать по-русски в обзоре. Остальное печатается как есть.
 ZNAKOMYE = {
@@ -115,8 +127,10 @@ def prochitat(path: Path, s: str | None, po: str | None):
     obzor: dict[str, dict] = defaultdict(
         lambda: {"count": 0, "min": None, "max": None, "istochniki": set(), "unit": None}
     )
-    shagi: dict[str, dict[str, float]] = defaultdict(lambda: defaultdict(float))
-    ves: dict[str, tuple[str, float]] = {}
+    summy: dict[str, dict[str, dict[str, float]]] = defaultdict(
+        lambda: defaultdict(lambda: defaultdict(float))
+    )
+    pozdnie: dict[str, dict[str, tuple[str, float]]] = defaultdict(dict)
     trenirovok = 0
     svodok = 0
 
@@ -145,21 +159,22 @@ def prochitat(path: Path, s: str | None, po: str | None):
                 if den and (s is None or den >= s) and (po is None or den <= po):
                     value = chislo(element.get("value"))
                     if value is not None:
-                        if kind == STEPS:
-                            shagi[den][istochnik] += value
-                        elif kind == WEIGHT:
+                        if kind in PO_ISTOCHNIKAM:
+                            summy[kind][den][istochnik] += value
+                        elif kind in POZDNIY:
                             nachalo = element.get("startDate") or ""
-                            if den not in ves or nachalo > ves[den][0]:
-                                ves[den] = (nachalo, value)
+                            prezhnee = pozdnie[kind].get(den)
+                            if prezhnee is None or nachalo > prezhnee[0]:
+                                pozdnie[kind][den] = (nachalo, value)
 
             element.clear()
 
-    return obzor, shagi, ves, trenirovok, svodok
+    return obzor, summy, pozdnie, trenirovok, svodok
 
 
-def svesti_shagi(shagi: dict[str, dict[str, float]]) -> dict[str, int]:
-    return {den: int(round(max(po_istochnikam.values()))) for den, po_istochnikam in shagi.items()
-            if po_istochnikam}
+def svesti(po_dnyam: dict[str, dict[str, float]]) -> dict[str, float]:
+    """Наибольшая сумма по одному источнику за день."""
+    return {den: max(po_ist.values()) for den, po_ist in po_dnyam.items() if po_ist}
 
 
 def main() -> int:
@@ -176,9 +191,17 @@ def main() -> int:
         return 1
 
     print("Читаю выгрузку, это может занять минуту…\n")
-    obzor, shagi_syrye, ves, trenirovok, svodok = prochitat(path, args.s, args.po)
+    obzor, summy, pozdnie, trenirovok, svodok = prochitat(path, args.s, args.po)
 
-    shagi = svesti_shagi(shagi_syrye)
+    shagi = {d: int(round(v)) for d, v in svesti(summy[STEPS]).items()}
+    aktivnaya = svesti(summy[ACTIVE])
+    pokoya = svesti(summy[BASAL])
+    ves = {d: v for d, (_, v) in pozdnie[WEIGHT].items()}
+    zhir = {d: v for d, (_, v) in pozdnie[FAT].items()}
+    toshchaya = {d: v for d, (_, v) in pozdnie[LEAN].items()}
+
+    # Процент жира Health хранит долей: 0.312 — это 31,2%.
+    zhir = {d: (v * 100 if v <= 1 else v) for d, v in zhir.items()}
 
     # ------------------------------------------------------------------ обзор
     print(f"{'Что':<26} {'Записей':>9}  {'Ед.':<10} {'Период':<25} Источники")
@@ -198,27 +221,50 @@ def main() -> int:
         print(f"Сводок активности: {svodok}")
 
     # --------------------------------------------------------------- к заливке
-    print(f"\nК заливке за выбранный период:")
-    print(f"  шаги — {len(shagi)} дн." + (f", {min(shagi)} — {max(shagi)}" if shagi else ""))
-    print(f"  вес  — {len(ves)} дн." + (f", {min(ves)} — {max(ves)}" if ves else ""))
+    def stroka(nazvanie: str, dannye: dict) -> str:
+        if not dannye:
+            return f"  {nazvanie:<16} —"
+        return f"  {nazvanie:<16} {len(dannye)} дн., {min(dannye)} — {max(dannye)}"
 
-    zadvoenie = [d for d, po_ist in shagi_syrye.items() if len(po_ist) > 1]
+    energiya = {d: {"active": aktivnaya.get(d), "basal": pokoya.get(d)}
+                for d in set(aktivnaya) | set(pokoya)}
+    oba_polovinki = {d for d, v in energiya.items()
+                     if v["active"] is not None and v["basal"] is not None}
+    telo = {d: {"fat_percent": zhir.get(d), "lean_mass": toshchaya.get(d)}
+            for d in set(zhir) | set(toshchaya)}
+
+    print("\nК заливке за выбранный период:")
+    print(stroka("шаги", shagi))
+    print(stroka("вес", ves))
+    print(stroka("расход", energiya))
+    print(f"  {'из них полных':<16} {len(oba_polovinki)} дн. — есть и покой, и активность")
+    print(stroka("состав тела", telo))
+
+    zadvoenie = [d for d, po_ist in summy[STEPS].items() if len(po_ist) > 1]
     if zadvoenie:
         print(f"\n  Шаги пишут несколько источников ({len(zadvoenie)} дн.).")
         print("  За день беру наибольшую сумму по одному источнику, а не сумму всех:")
-        print("  айфон и часы считают одни и те же шаги, сложение их задваивает.")
+        print("  айфон, часы и сторонние приложения считают одно и то же.")
 
     if shagi:
-        primer = sorted(shagi)[-5:]
         print("\n  Последние дни по шагам:")
-        for den in primer:
-            po_ist = ", ".join(f"{k}: {int(v)}" for k, v in sorted(shagi_syrye[den].items()))
-            print(f"    {den}  {shagi[den]:>6}   ({po_ist})")
+        for den in sorted(shagi)[-5:]:
+            po_ist = ", ".join(f"{k}: {int(v)}" for k, v in sorted(summy[STEPS][den].items()))
+            rashod = energiya.get(den, {})
+            hvost = ""
+            if rashod.get("active") is not None and rashod.get("basal") is not None:
+                hvost = f"   расход {int(rashod['basal'] + rashod['active'])} ккал"
+            print(f"    {den}  {shagi[den]:>6}{hvost}   ({po_ist})")
 
     if ves:
         print("\n  Последние взвешивания:")
         for den in sorted(ves)[-5:]:
-            print(f"    {den}  {ves[den][1]:.1f} кг")
+            dop = []
+            if den in zhir:
+                dop.append(f"жир {zhir[den]:.1f}%")
+            if den in toshchaya:
+                dop.append(f"тощая {toshchaya[den]:.1f} кг")
+            print(f"    {den}  {ves[den]:.1f} кг" + (f"   ({', '.join(dop)})" if dop else ""))
 
     if not args.zalit:
         print("\nНичего не записано. Для заливки добавь --zalit")
@@ -237,17 +283,30 @@ def main() -> int:
         for i in range(0, len(items), razmer):
             yield items[i:i + razmer]
 
-    if ves:
-        for pachka in pachkami([{"d": d, "kg": round(v, 1), "source": "health-export"}
-                                for d, (_, v) in sorted(ves.items())]):
-            api.rpc("log_weight", {"p": pachka})
+    def zalit(nazvanie: str, funkciya: str, items: list) -> None:
+        if not items:
+            return
+        for pachka in pachkami(items):
+            api.rpc(funkciya, {"p": pachka})
+        print(f"  {nazvanie}: {len(items)} дн.")
 
-    if shagi:
-        for pachka in pachkami([{"d": d, "steps": v, "source": "health-export"}
-                                for d, v in sorted(shagi.items())]):
-            api.rpc("log_steps", {"p": pachka})
+    print("\nЗаливаю:")
+    zalit("вес", "log_weight",
+          [{"d": d, "kg": round(v, 1), "source": "health-export"} for d, v in sorted(ves.items())])
+    zalit("шаги", "log_steps",
+          [{"d": d, "steps": v, "source": "health-export"} for d, v in sorted(shagi.items())])
+    zalit("расход", "log_energy",
+          [{"d": d, "active": round(v["active"], 1) if v["active"] is not None else None,
+            "basal": round(v["basal"], 1) if v["basal"] is not None else None,
+            "source": "health-export"}
+           for d, v in sorted(energiya.items())])
+    zalit("состав тела", "log_body",
+          [{"d": d, "fat_percent": round(v["fat_percent"], 1) if v["fat_percent"] is not None else None,
+            "lean_mass": round(v["lean_mass"], 1) if v["lean_mass"] is not None else None,
+            "source": "health-export"}
+           for d, v in sorted(telo.items())])
 
-    print("\nГотово. Значения вне диапазона (вес 50–250 кг, шаги 100–60000) база отсеяла молча.")
+    print("\nГотово. Значения вне диапазона база отсеяла молча.")
     return 0
 
 
