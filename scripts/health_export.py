@@ -41,7 +41,20 @@ LEAN = "HKQuantityTypeIdentifierLeanBodyMass"
 # Суммируем по источникам и берём наибольшую сумму, а не сложение всех.
 # Шаги и энергию пишут параллельно айфон, часы и сторонние приложения —
 # Yazio, Zepp, Fitsession. Сложить их значит завысить день в разы.
-PO_ISTOCHNIKAM = (STEPS, ACTIVE, BASAL)
+# Питание из Yazio: два года до перехода на Claude. Записи поштучные,
+# по приёмам пищи, поэтому за день суммируются.
+EDA = {
+    "calories": "HKQuantityTypeIdentifierDietaryEnergyConsumed",
+    "protein": "HKQuantityTypeIdentifierDietaryProtein",
+    "fat": "HKQuantityTypeIdentifierDietaryFatTotal",
+    "carbs": "HKQuantityTypeIdentifierDietaryCarbohydrates",
+    "fiber": "HKQuantityTypeIdentifierDietaryFiber",
+    "sugar": "HKQuantityTypeIdentifierDietarySugar",
+    "sat_fat": "HKQuantityTypeIdentifierDietaryFatSaturated",
+    "sodium": "HKQuantityTypeIdentifierDietarySodium",
+}
+
+PO_ISTOCHNIKAM = (STEPS, ACTIVE, BASAL) + tuple(EDA.values())
 
 # Из нескольких замеров за день берём поздний.
 POZDNIY = (WEIGHT, FAT, LEAN)
@@ -194,6 +207,7 @@ def main() -> int:
     obzor, summy, pozdnie, trenirovok, svodok = prochitat(path, args.s, args.po)
 
     shagi = {d: int(round(v)) for d, v in svesti(summy[STEPS]).items()}
+    eda_po_polyam = {pole: svesti(summy[kind]) for pole, kind in EDA.items()}
     aktivnaya = svesti(summy[ACTIVE])
     pokoya = svesti(summy[BASAL])
     ves = {d: v for d, (_, v) in pozdnie[WEIGHT].items()}
@@ -238,7 +252,21 @@ def main() -> int:
     print(stroka("вес", ves))
     print(stroka("расход", energiya))
     print(f"  {'из них полных':<16} {len(oba_polovinki)} дн. — есть и покой, и активность")
+    # Натрий в миллиграммах, соль в граммах. 6 г соли ≈ 2400 мг натрия —
+    # коэффициент из «Система питания.md».
+    eda: dict[str, dict] = {}
+    for den in eda_po_polyam["calories"]:
+        zapis = {pole: eda_po_polyam[pole].get(den) for pole in
+                 ("calories", "protein", "fat", "carbs", "fiber", "sugar", "sat_fat")}
+        natriy = eda_po_polyam["sodium"].get(den)
+        zapis["salt"] = round(natriy * 2.5 / 1000, 1) if natriy is not None else None
+        eda[den] = zapis
+
     print(stroka("состав тела", telo))
+    print(stroka("питание", eda))
+    if eda:
+        nepolnye = sum(1 for v in eda.values() if (v["calories"] or 0) < 1200)
+        print(f"  {'из них скудных':<16} {nepolnye} дн. — меньше 1200 ккал, похоже на брошенные")
 
     zadvoenie = [d for d, po_ist in summy[STEPS].items() if len(po_ist) > 1]
     if zadvoenie:
@@ -300,6 +328,12 @@ def main() -> int:
             "basal": round(v["basal"], 1) if v["basal"] is not None else None,
             "source": "health-export"}
            for d, v in sorted(energiya.items())])
+    zalit("питание", "log_food_day",
+          [{"d": d, "source": "yazio",
+            **{k: (round(v, 1) if isinstance(v, float) else v)
+               for k, v in sorted(zapis.items()) if v is not None},
+            "calories": int(round(zapis["calories"])) if zapis["calories"] is not None else None}
+           for d, zapis in sorted(eda.items())])
     zalit("состав тела", "log_body",
           [{"d": d, "fat_percent": round(v["fat_percent"], 1) if v["fat_percent"] is not None else None,
             "lean_mass": round(v["lean_mass"], 1) if v["lean_mass"] is not None else None,
