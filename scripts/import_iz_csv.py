@@ -93,6 +93,33 @@ def parse_date(raw: str) -> str | None:
     return None
 
 
+def find_date(text: str) -> str | None:
+    """
+    Дата где-то внутри строки.
+
+    Для заголовков дневника: там пишется «## 2026-08-27, четверг», и требовать
+    от всей строки быть датой нельзя. В ячейках CSV, наоборот, разбираем строго
+    через parse_date — иначе номер дома в заметке сойдёт за дату.
+    """
+    text = (text or "").strip()
+    if not text:
+        return None
+
+    iso = re.search(r"\b(\d{4}-\d{2}-\d{2})\b", text)
+    if iso:
+        return parse_date(iso.group(1))
+
+    dotted = re.search(r"\b(\d{1,2}\.\d{1,2}\.\d{2,4})\b", text)
+    if dotted:
+        return parse_date(dotted.group(1))
+
+    worded = re.search(r"\b(\d{1,2})\s+([а-яё]+)\s+(\d{4})\b", text.lower())
+    if worded and worded.group(2) in MONTHS:
+        return date(int(worded.group(3)), MONTHS[worded.group(2)], int(worded.group(1))).isoformat()
+
+    return None
+
+
 def parse_number(raw: str | None) -> float | None:
     """«~1 840», «1840 ккал», «5,4» — всё это числа."""
     if raw is None:
@@ -248,7 +275,7 @@ def load_diary(folder: Path) -> dict[str, str]:
 
     for line in text.splitlines():
         heading = re.match(r"^#{1,4}\s+(.*)$", line)
-        iso = parse_date(heading.group(1).strip()) if heading else None
+        iso = find_date(heading.group(1)) if heading else None
         if iso:
             if current:
                 entries[current] = "\n".join(buffer).strip()
