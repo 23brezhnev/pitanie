@@ -15,6 +15,15 @@ export type SeriesSpec = {
   digits?: number;
   /** Цвет для отрицательных значений: расходящаяся шкала вокруг нуля. */
   negativeColor?: string;
+  /**
+   * Соединять линию через пропуски.
+   *
+   * Для веса это честно: точки настоящие, отрезок между ними — очевидная
+   * интерполяция, и каждое измерение помечено кружком. Для калорий и шагов
+   * пропуск означает «не записано», и соединять их нельзя — линия покажет
+   * данные, которых не было.
+   */
+  connectGaps?: boolean;
 };
 
 export type TimePoint = { d: string; [key: string]: number | string | null | undefined };
@@ -268,11 +277,15 @@ export function TimeSeriesChart({
             });
             if (current.length) runs.push(current);
 
-            const last = runs.at(-1)?.at(-1) ?? null;
+            // Соединяем всё одной ломаной, а точки помечаем кружками: видно,
+            // где измерение, а где отрезок между ними.
+            const tochki = runs.flat();
+            const otrezki = s.connectGaps ? (tochki.length ? [tochki] : []) : runs;
+            const last = tochki.at(-1) ?? null;
 
             return (
               <g key={s.key}>
-                {runs.map((run, index) =>
+                {otrezki.map((run, index) =>
                   run.length > 1 ? (
                     <path
                       key={index}
@@ -293,6 +306,10 @@ export function TimeSeriesChart({
                     />
                   ),
                 )}
+                {s.connectGaps &&
+                  tochki.map((p) => (
+                    <circle key={p.i} cx={xAt(p.i)} cy={yAt(p.v)} r="3" fill={s.color} />
+                  ))}
                 {last && (
                   <circle
                     cx={xAt(last.i)}

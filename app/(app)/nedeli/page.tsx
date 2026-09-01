@@ -28,7 +28,7 @@ export default async function WeeksPage() {
           <TimeSeriesChart
             data={chronological.map((w) => ({ d: w.week_start, weight: w.avg_weight }))}
             series={[
-              { key: 'weight', label: 'Средний вес', color: 'var(--series-1)', type: 'line', digits: 1 },
+              { key: 'weight', label: 'Средний вес', color: 'var(--series-1)', type: 'line', digits: 1, connectGaps: true },
             ]}
             reference={
               settings?.weight_goal !== null && settings?.weight_goal !== undefined

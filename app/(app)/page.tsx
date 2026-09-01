@@ -210,12 +210,14 @@ export default async function OverviewPage({
         </Card>
 
         <div className="grid grid-2">
-          <Card title="Вес" subtitle="Точки взвешиваний и сглаженный тренд">
+          <Card
+            title="Вес"
+            subtitle="Точки — взвешивания, линия между ними проведена по прямой. Сглаживание по неделям — на странице «Недели»."
+          >
             <TimeSeriesChart
-              data={days.map((d) => ({ d: d.d, weight: d.weight, ma7: d.weight_ma7 }))}
+              data={days.map((d) => ({ d: d.d, weight: d.weight }))}
               series={[
-                { key: 'weight', label: 'Взвешивание', color: 'var(--series-1)', type: 'line', digits: 1 },
-                { key: 'ma7', label: 'Среднее за 7 дней', color: 'var(--series-2)', type: 'line', digits: 1 },
+                { key: 'weight', label: 'Взвешивание', color: 'var(--series-1)', type: 'line', digits: 1, connectGaps: true },
               ]}
               reference={
                 settings.weight_goal !== null
